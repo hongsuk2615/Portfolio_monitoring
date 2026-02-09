@@ -1,0 +1,56 @@
+name: Deploy Portfolio Service
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Run tests
+        run: |
+          export $(cat /home/hongsuk/project/docker/monitoring/.env | xargs)
+          export SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/monitoring
+          echo "Testing with DB: $SPRING_DATASOURCE_URL"
+          ./gradlew test
+
+      - name: Build with Gradle
+        run: |
+          export $(cat /home/hongsuk/project/docker/monitoring/.env | xargs)
+          ./gradlew clean build -x test
+
+      - name: Copy JAR to docker directory
+        run: |
+          mkdir -p /home/hongsuk/project/docker/monitoring/build/libs
+          cp build/libs/*.jar /home/hongsuk/project/docker/monitoring/build/libs/
+
+      - name: Build Docker image
+        run: |
+          cd /home/hongsuk/project/docker/monitoring
+          docker compose build
+
+      - name: Deploy with Docker Compose
+        run: |
+          cd /home/hongsuk/project/docker/monitoring
+          docker compose down
+          docker compose up -d
+
+      - name: Check deployment status
+        run: |
+          cd /home/hongsuk/project/docker/monitoring
+          docker compose ps
