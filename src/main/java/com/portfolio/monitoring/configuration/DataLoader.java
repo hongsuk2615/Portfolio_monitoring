@@ -5,8 +5,9 @@ import com.portfolio.monitoring.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.annotation.Profile;
+import org.springframework.context.event.EventListener;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
@@ -14,7 +15,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 @Slf4j
 @Profile("!test")
-public class DataLoader implements CommandLineRunner {
+public class DataLoader {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -25,8 +26,8 @@ public class DataLoader implements CommandLineRunner {
     @Value("${admin.password}")
     private String adminPassword;
 
-    @Override
-    public void run(String... args) throws Exception {
+    @EventListener(ApplicationReadyEvent.class)
+    public void initData() {
         // admin 계정이 없으면 생성
         if (userRepository.findByUserName(adminUsername).isEmpty()) {
             User admin = new User();
