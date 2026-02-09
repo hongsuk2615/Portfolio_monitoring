@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>배치관리 - 모니터링 시스템</title>
+    <th:block th:replace="~{layout/commonHeader :: commonHeader}"></th:block>
+</head>
+<body>
+<th:block th:replace="~{layout/sidebar :: sidebar}"></th:block>
+
+<div class="content">
+    <div class="page-header">
+        <h2><i class="bi bi-clock-history"></i> 배치관리</h2>
+        <p>배치 작업의 스케줄 및 실행 이력을 관리합니다</p>
+    </div>
+
+    <!-- 통계 카드 -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="stat-card">
+                <h6>전체 배치</h6>
+                <div class="stat-value" id="totalBatches">0</div>
+                <div class="stat-label">등록된 배치 작업</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <h6>실행 중</h6>
+                <div class="stat-value text-info" id="runningBatches">0</div>
+                <div class="stat-label">현재 실행 중</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <h6>성공</h6>
+                <div class="stat-value text-success" id="successBatches">0</div>
+                <div class="stat-label">오늘 성공한 작업</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <h6>실패</h6>
+                <div class="stat-value text-danger" id="failedBatches">0</div>
+                <div class="stat-label">오늘 실패한 작업</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 배치 작업 목록 -->
+    <div class="table-container">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5><i class="bi bi-list-task"></i> 배치 작업 목록</h5>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addBatchModal">
+                <i class="bi bi-plus-circle"></i> 배치 추가
+            </button>
+        </div>
+        <table class="table">
+            <thead>
+            <tr>
+                <th>작업명</th>
+                <th>스케줄</th>
+                <th>상태</th>
+                <th>마지막 실행</th>
+                <th>다음 실행</th>
+                <th>성공률</th>
+                <th>액션</th>
+            </tr>
+            </thead>
+            <tbody id="batchTable">
+            <tr>
+                <td colspan="7" class="text-center" style="color: #64748b;">
+                    <i class="bi bi-hourglass-split"></i> 데이터를 불러오는 중...
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 실행 이력 -->
+    <div class="table-container">
+        <h5><i class="bi bi-clock-history"></i> 최근 실행 이력</h5>
+        <table class="table">
+            <thead>
+            <tr>
+                <th>실행 시간</th>
+                <th>작업명</th>
+                <th>소요 시간</th>
+                <th>상태</th>
+                <th>상세</th>
+            </tr>
+            </thead>
+            <tbody id="historyTable">
+            <tr>
+                <td colspan="5" class="text-center" style="color: #64748b;">
+                    <i class="bi bi-hourglass-split"></i> 데이터를 불러오는 중...
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 배치 추가 모달 -->
+<div class="modal fade" id="addBatchModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content" style="background: #1e293b; color: #f8fafc;">
+            <div class="modal-header" style="border-color: #334155;">
+                <h5 class="modal-title"><i class="bi bi-plus-circle"></i> 배치 작업 추가</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addBatchForm">
+                    <div class="mb-3">
+                        <label class="form-label">작업명</label>
+                        <input type="text" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">설명</label>
+                        <textarea class="form-control" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Cron 표현식</label>
+                        <input type="text" class="form-control" placeholder="0 0 * * * ?" required>
+                        <small style="color: #64748b;">예: 0 0 * * * ? (매일 자정)</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">작업 클래스</label>
+                        <input type="text" class="form-control" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer" style="border-color: #334155;">
+                <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">취소</button>
+                <button type="button" class="btn btn-primary" onclick="addBatch()">추가</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let batchData = [];
+    let historyData = [];
+
+    // 배치 데이터 로드
+    async function loadBatchData() {
+        try {
+            // API 호출 예시
+            batchData = [
+                {
+                    name: '일일 통계 집계',
+                    schedule: '0 0 1 * * ?',
+                    status: 'active',
+                    lastRun: new Date(Date.now() - 3600000),
+                    nextRun: new Date(Date.now() + 82800000),
+                    successRate: '98.5%'
+                },
+                {
+                    name: '로그 정리',
+                    schedule: '0 0 3 * * ?',
+                    status: 'active',
+                    lastRun: new Date(Date.now() - 7200000),
+                    nextRun: new Date(Date.now() + 79200000),
+                    successRate: '100%'
+                },
+                {
+                    name: '백업 작업',
+                    schedule: '0 0 0 * * ?',
+                    status: 'paused',
+                    lastRun: new Date(Date.now() - 86400000),
+                    nextRun: null,
+                    successRate: '95.2%'
+                },
+                {
+                    name: '알림 발송',
+                    schedule: '0 */30 * * * ?',
+                    status: 'running',
+                    lastRun: new Date(Date.now() - 300000),
+                    nextRun: new Date(Date.now() + 1500000),
+                    successRate: '99.1%'
+                }
+            ];
+
+            historyData = [
+                { time: new Date(Date.now() - 300000), name: '알림 발송', duration: '1.2초', status: 'success' },
+                { time: new Date(Date.now() - 1800000), name: '알림 발송', duration: '0.8초', status: 'success' },
+                { time: new Date(Date.now() - 3600000), name: '일일 통계 집계', duration: '45.3초', status: 'success' },
+                { time: new Date(Date.now() - 7200000), name: '로그 정리', duration: '12.5초', status: 'success' },
+                { time: new Date(Date.now() - 10800000), name: '백업 작업', duration: '0초', status: 'failed' }
+            ];
+
+            document.getElementById('totalBatches').textContent = batchData.length;
+            document.getElementById('runningBatches').textContent = batchData.filter(b => b.status === 'running').length;
+            document.getElementById('successBatches').textContent = historyData.filter(h => h.status === 'success').length;
+            document.getElementById('failedBatches').textContent = historyData.filter(h => h.status === 'failed').length;
+
+            renderBatchTable();
+            renderHistoryTable();
+        } catch (error) {
+            console.error('배치 데이터 로드 실패:', error);
+        }
+    }
+
+    // 배치 테이블 렌더링
+    function renderBatchTable() {
+        const tbody = document.getElementById('batchTable');
+        const statusBadges = {
+            active: '<span class="badge badge-success">활성</span>',
+            running: '<span class="badge badge-info">실행중</span>',
+            paused: '<span class="badge badge-warning">중지</span>'
+        };
+
+        tbody.innerHTML = batchData.map(batch => `
+            <tr>
+                <td><strong>${batch.name}</strong></td>
+                <td><code style="color: #38bdf8;">${batch.schedule}</code></td>
+                <td>${statusBadges[batch.status]}</td>
+                <td>${formatTime(batch.lastRun)}</td>
+                <td>${batch.nextRun ? formatTime(batch.nextRun) : '-'}</td>
+                <td>${batch.successRate}</td>
+                <td>
+                    <button class="btn btn-sm btn-success me-1" onclick="runBatch('${batch.name}')"
+                            ${batch.status === 'running' ? 'disabled' : ''}>
+                        <i class="bi bi-play-fill"></i>
+                    </button>
+                    <button class="btn btn-sm btn-warning me-1" onclick="pauseBatch('${batch.name}')">
+                        <i class="bi bi-pause-fill"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteBatch('${batch.name}')">
+                        <i class="bi bi-trash-fill"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    // 실행 이력 테이블 렌더링
+    function renderHistoryTable() {
+        const tbody = document.getElementById('historyTable');
+        const statusBadges = {
+            success: '<span class="badge badge-success">성공</span>',
+            failed: '<span class="badge badge-danger">실패</span>'
+        };
+
+        tbody.innerHTML = historyData.map(history => `
+            <tr>
+                <td>${history.time.toLocaleString('ko-KR')}</td>
+                <td>${history.name}</td>
+                <td>${history.duration}</td>
+                <td>${statusBadges[history.status]}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-light" onclick="viewDetail('${history.name}')">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    // 배치 실행
+    function runBatch(name) {
+        console.log('배치 실행:', name);
+        alert(`${name} 배치 작업을 실행합니다.`);
+    }
+
+    // 배치 일시중지
+    function pauseBatch(name) {
+        console.log('배치 중지:', name);
+        alert(`${name} 배치 작업을 일시중지합니다.`);
+    }
+
+    // 배치 삭제
+    function deleteBatch(name) {
+        if (confirm(`${name} 배치 작업을 삭제하시겠습니까?`)) {
+            console.log('배치 삭제:', name);
+        }
+    }
+
+    // 배치 추가
+    function addBatch() {
+        alert('배치 작업이 추가되었습니다.');
+        bootstrap.Modal.getInstance(document.getElementById('addBatchModal')).hide();
+    }
+
+    // 상세 보기
+    function viewDetail(name) {
+        alert(`${name} 실행 상세 정보를 표시합니다.`);
+    }
+
+    // 시간 포맷팅
+    function formatTime(date) {
+        const now = new Date();
+        const diff = Math.floor((now - date) / 1000);
+        if (diff < 60) return `${diff}초 전`;
+        if (diff < 0) return `${Math.abs(Math.floor(diff / 60))}분 후`;
+        if (diff < 3600) return `${Math.floor(diff / 60)}분 전`;
+        if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
+        return date.toLocaleString('ko-KR');
+    }
+
+    // 페이지 로드 시 데이터 로드
+    loadBatchData();
+
+    // 30초마다 자동 새로고침
+    setInterval(loadBatchData, 30000);
+</script>
+</body>
+</html>

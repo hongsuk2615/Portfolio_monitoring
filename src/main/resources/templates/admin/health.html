@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>헬스체크 - 모니터링 시스템</title>
+    <th:block th:replace="~{layout/commonHeader :: commonHeader}"></th:block>
+</head>
+<body>
+<th:block th:replace="~{layout/sidebar :: sidebar}"></th:block>
+
+<div class="content">
+    <div class="page-header">
+        <h2><i class="bi bi-heart-pulse-fill"></i> 헬스체크</h2>
+        <p>각 서비스의 상태를 실시간으로 모니터링합니다</p>
+    </div>
+
+    <!-- 필터 및 새로고침 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <button class="btn btn-outline-light btn-sm me-2" onclick="filterStatus('all')">
+                <i class="bi bi-funnel"></i> 전체
+            </button>
+            <button class="btn btn-outline-light btn-sm me-2" onclick="filterStatus('healthy')">
+                <i class="bi bi-check-circle"></i> 정상
+            </button>
+            <button class="btn btn-outline-light btn-sm me-2" onclick="filterStatus('warning')">
+                <i class="bi bi-exclamation-triangle"></i> 경고
+            </button>
+            <button class="btn btn-outline-light btn-sm" onclick="filterStatus('error')">
+                <i class="bi bi-x-circle"></i> 오류
+            </button>
+        </div>
+        <button class="btn btn-primary" onclick="refreshHealth()">
+            <i class="bi bi-arrow-clockwise"></i> 새로고침
+        </button>
+    </div>
+
+    <!-- 서비스 상태 카드 -->
+    <div class="row g-4 mb-4" id="healthCards">
+        <!-- 카드들이 동적으로 추가됩니다 -->
+    </div>
+
+    <!-- 상세 정보 테이블 -->
+    <div class="table-container">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5><i class="bi bi-list-ul"></i> 상세 정보</h5>
+            <span id="lastUpdate" style="color: #64748b; font-size: 0.9rem;">
+                <i class="bi bi-clock"></i> 마지막 업데이트: -
+            </span>
+        </div>
+        <table class="table">
+            <thead>
+            <tr>
+                <th>서비스명</th>
+                <th>상태</th>
+                <th>응답시간</th>
+                <th>업타임</th>
+                <th>마지막 체크</th>
+                <th>액션</th>
+            </tr>
+            </thead>
+            <tbody id="healthTable">
+            <tr>
+                <td colspan="6" class="text-center" style="color: #64748b;">
+                    <i class="bi bi-hourglass-split"></i> 데이터를 불러오는 중...
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    let currentFilter = 'all';
+    let healthData = [];
+
+    // 헬스체크 데이터 로드
+    async function loadHealthData() {
+        try {
+            // API 호출 예시
+            healthData = [
+                {
+                    name: 'Tech Stack API',
+                    status: 'healthy',
+                    responseTime: 45,
+                    uptime: '99.9%',
+                    lastCheck: new Date(),
+                    endpoint: 'http://localhost:8080/actuator/health'
+                },
+                {
+                    name: 'Monitoring API',
+                    status: 'healthy',
+                    responseTime: 32,
+                    uptime: '99.8%',
+                    lastCheck: new Date(),
+                    endpoint: 'http://localhost:8081/actuator/health'
+                },
+                {
+                    name: 'Database',
+                    status: 'healthy',
+                    responseTime: 12,
+                    uptime: '100%',
+                    lastCheck: new Date(),
+                    endpoint: 'jdbc:postgresql://localhost:5432'
+                },
+                {
+                    name: 'Redis Cache',
+                    status: 'warning',
+                    responseTime: 156,
+                    uptime: '98.5%',
+                    lastCheck: new Date(),
+                    endpoint: 'redis://localhost:6379'
+                },
+                {
+                    name: 'Kafka Broker',
+                    status: 'healthy',
+                    responseTime: 28,
+                    uptime: '99.7%',
+                    lastCheck: new Date(),
+                    endpoint: 'localhost:9092'
+                },
+                {
+                    name: 'Batch Server',
+                    status: 'error',
+                    responseTime: 0,
+                    uptime: '85.2%',
+                    lastCheck: new Date(),
+                    endpoint: 'http://localhost:8082'
+                }
+            ];
+
+            renderHealthCards();
+            renderHealthTable();
+            updateLastUpdateTime();
+        } catch (error) {
+            console.error('헬스체크 데이터 로드 실패:', error);
+        }
+    }
+
+    // 헬스체크 카드 렌더링
+    function renderHealthCards() {
+        const container = document.getElementById('healthCards');
+        const filtered = currentFilter === 'all' ? healthData : healthData.filter(h => h.status === currentFilter);
+
+        const statusIcons = {
+            healthy: 'check-circle-fill text-success',
+            warning: 'exclamation-triangle-fill text-warning',
+            error: 'x-circle-fill text-danger'
+        };
+
+        container.innerHTML = filtered.map(service => `
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <h6>${service.name}</h6>
+                        <i class="bi bi-${statusIcons[service.status]}"></i>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <div style="color: #64748b; font-size: 0.85rem;">응답시간</div>
+                            <div style="color: #38bdf8; font-weight: 600;">${service.responseTime}ms</div>
+                        </div>
+                        <div>
+                            <div style="color: #64748b; font-size: 0.85rem;">업타임</div>
+                            <div style="color: #38bdf8; font-weight: 600;">${service.uptime}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // 헬스체크 테이블 렌더링
+    function renderHealthTable() {
+        const tbody = document.getElementById('healthTable');
+        const filtered = currentFilter === 'all' ? healthData : healthData.filter(h => h.status === currentFilter);
+
+        const statusBadges = {
+            healthy: '<span class="badge badge-success">정상</span>',
+            warning: '<span class="badge badge-warning">경고</span>',
+            error: '<span class="badge badge-danger">오류</span>'
+        };
+
+        tbody.innerHTML = filtered.map(service => `
+            <tr>
+                <td><strong>${service.name}</strong><br><small style="color: #64748b;">${service.endpoint}</small></td>
+                <td>${statusBadges[service.status]}</td>
+                <td>${service.responseTime}ms</td>
+                <td>${service.uptime}</td>
+                <td>${formatTime(service.lastCheck)}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-light" onclick="checkHealth('${service.name}')">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    // 상태 필터링
+    function filterStatus(status) {
+        currentFilter = status;
+        renderHealthCards();
+        renderHealthTable();
+    }
+
+    // 헬스체크 새로고침
+    function refreshHealth() {
+        loadHealthData();
+    }
+
+    // 개별 헬스체크
+    function checkHealth(serviceName) {
+        console.log('헬스체크 실행:', serviceName);
+        // API 호출 구현
+        alert(`${serviceName} 헬스체크를 실행합니다.`);
+    }
+
+    // 시간 포맷팅
+    function formatTime(date) {
+        const now = new Date();
+        const diff = Math.floor((now - date) / 1000);
+        if (diff < 60) return `${diff}초 전`;
+        if (diff < 3600) return `${Math.floor(diff / 60)}분 전`;
+        if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
+        return date.toLocaleString('ko-KR');
+    }
+
+    // 마지막 업데이트 시간 표시
+    function updateLastUpdateTime() {
+        const now = new Date();
+        document.getElementById('lastUpdate').innerHTML =
+            `<i class="bi bi-clock"></i> 마지막 업데이트: ${now.toLocaleTimeString('ko-KR')}`;
+    }
+
+    // 페이지 로드 시 데이터 로드
+    loadHealthData();
+
+    // 10초마다 자동 새로고침
+    setInterval(loadHealthData, 10000);
+</script>
+</body>
+</html>

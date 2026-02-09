@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>배포관리 - 모니터링 시스템</title>
+    <th:block th:replace="~{layout/commonHeader :: commonHeader}"></th:block>
+</head>
+<body>
+<th:block th:replace="~{layout/sidebar :: sidebar}"></th:block>
+
+<div class="content">
+    <div class="page-header">
+        <h2><i class="bi bi-rocket-takeoff-fill"></i> 배포관리</h2>
+        <p>애플리케이션 배포 현황 및 이력을 관리합니다</p>
+    </div>
+
+    <!-- 통계 카드 -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="stat-card">
+                <h6>총 배포 횟수</h6>
+                <div class="stat-value" id="totalDeployments">0</div>
+                <div class="stat-label">전체 배포</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <h6>진행 중</h6>
+                <div class="stat-value text-info" id="inProgressDeployments">0</div>
+                <div class="stat-label">배포 진행 중</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <h6>성공</h6>
+                <div class="stat-value text-success" id="successDeployments">0</div>
+                <div class="stat-label">성공한 배포</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <h6>실패</h6>
+                <div class="stat-value text-danger" id="failedDeployments">0</div>
+                <div class="stat-label">실패한 배포</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 신규 배포 -->
+    <div class="table-container mb-4">
+        <h5><i class="bi bi-plus-circle"></i> 신규 배포</h5>
+        <form id="deployForm" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">애플리케이션</label>
+                <select class="form-control" id="appSelect" required>
+                    <option value="">선택하세요</option>
+                    <option value="tech-stack">Tech Stack</option>
+                    <option value="monitoring">Monitoring</option>
+                    <option value="batch-server">Batch Server</option>
+                    <option value="api-gateway">API Gateway</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">환경</label>
+                <select class="form-control" id="envSelect" required>
+                    <option value="dev">개발</option>
+                    <option value="staging">스테이징</option>
+                    <option value="production">프로덕션</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">버전</label>
+                <input type="text" class="form-control" id="versionInput" placeholder="v1.0.0" required>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">&nbsp;</label>
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-rocket-takeoff"></i> 배포 시작
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- 배포 현황 -->
+    <div class="table-container">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5><i class="bi bi-list-check"></i> 배포 현황</h5>
+            <div>
+                <button class="btn btn-outline-light btn-sm me-2" onclick="filterEnv('all')">전체</button>
+                <button class="btn btn-outline-light btn-sm me-2" onclick="filterEnv('dev')">개발</button>
+                <button class="btn btn-outline-light btn-sm me-2" onclick="filterEnv('staging')">스테이징</button>
+                <button class="btn btn-outline-light btn-sm" onclick="filterEnv('production')">프로덕션</button>
+            </div>
+        </div>
+        <table class="table">
+            <thead>
+            <tr>
+                <th>애플리케이션</th>
+                <th>환경</th>
+                <th>버전</th>
+                <th>상태</th>
+                <th>배포 시간</th>
+                <th>소요 시간</th>
+                <th>배포자</th>
+                <th>액션</th>
+            </tr>
+            </thead>
+            <tbody id="deploymentTable">
+            <tr>
+                <td colspan="8" class="text-center" style="color: #64748b;">
+                    <i class="bi bi-hourglass-split"></i> 데이터를 불러오는 중...
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 배포 이력 차트 -->
+    <div class="row g-4 mt-4">
+        <div class="col-md-12">
+            <div class="chart-container">
+                <h5><i class="bi bi-graph-up"></i> 배포 추이 (최근 30일)</h5>
+                <canvas id="deploymentChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 배포 상세 모달 -->
+<div class="modal fade" id="deploymentDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" style="background: #1e293b; color: #f8fafc;">
+            <div class="modal-header" style="border-color: #334155;">
+                <h5 class="modal-title"><i class="bi bi-info-circle"></i> 배포 상세 정보</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="deploymentDetailContent">
+                    <!-- 상세 정보가 여기에 표시됩니다 -->
+                </div>
+            </div>
+            <div class="modal-footer" style="border-color: #334155;">
+                <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentEnvFilter = 'all';
+    let deploymentData = [];
+
+    // 배포 데이터 로드
+    async function loadDeploymentData() {
+        try {
+            // API 호출 예시
+            deploymentData = [
+                {
+                    app: 'Tech Stack',
+                    env: 'production',
+                    version: 'v1.2.3',
+                    status: 'success',
+                    startTime: new Date(Date.now() - 7200000),
+                    duration: '2m 45s',
+                    deployer: 'admin',
+                    logs: 'Build successful\nTests passed\nDeployment completed'
+                },
+                {
+                    app: 'Monitoring',
+                    env: 'staging',
+                    version: 'v2.0.1',
+                    status: 'in_progress',
+                    startTime: new Date(Date.now() - 300000),
+                    duration: '5m 12s',
+                    deployer: 'admin',
+                    logs: 'Building application...'
+                },
+                {
+                    app: 'Batch Server',
+                    env: 'production',
+                    version: 'v1.5.0',
+                    status: 'success',
+                    startTime: new Date(Date.now() - 14400000),
+                    duration: '3m 21s',
+                    deployer: 'admin',
+                    logs: 'Build successful\nTests passed\nDeployment completed'
+                },
+                {
+                    app: 'API Gateway',
+                    env: 'dev',
+                    version: 'v0.9.5',
+                    status: 'failed',
+                    startTime: new Date(Date.now() - 21600000),
+                    duration: '1m 05s',
+                    deployer: 'admin',
+                    logs: 'Build failed: compilation error'
+                },
+                {
+                    app: 'Tech Stack',
+                    env: 'dev',
+                    version: 'v1.2.4-SNAPSHOT',
+                    status: 'success',
+                    startTime: new Date(Date.now() - 28800000),
+                    duration: '2m 30s',
+                    deployer: 'admin',
+                    logs: 'Build successful\nTests passed\nDeployment completed'
+                }
+            ];
+
+            const today = deploymentData.filter(d => {
+                const diff = Date.now() - d.startTime.getTime();
+                return diff < 86400000;
+            });
+
+            document.getElementById('totalDeployments').textContent = deploymentData.length;
+            document.getElementById('inProgressDeployments').textContent = deploymentData.filter(d => d.status === 'in_progress').length;
+            document.getElementById('successDeployments').textContent = today.filter(d => d.status === 'success').length;
+            document.getElementById('failedDeployments').textContent = today.filter(d => d.status === 'failed').length;
+
+            renderDeploymentTable();
+            renderDeploymentChart();
+        } catch (error) {
+            console.error('배포 데이터 로드 실패:', error);
+        }
+    }
+
+    // 배포 테이블 렌더링
+    function renderDeploymentTable() {
+        const tbody = document.getElementById('deploymentTable');
+        const filtered = currentEnvFilter === 'all' ? deploymentData : deploymentData.filter(d => d.env === currentEnvFilter);
+
+        const statusBadges = {
+            success: '<span class="badge badge-success">성공</span>',
+            in_progress: '<span class="badge badge-info">진행중</span>',
+            failed: '<span class="badge badge-danger">실패</span>'
+        };
+
+        const envLabels = {
+            dev: '개발',
+            staging: '스테이징',
+            production: '프로덕션'
+        };
+
+        tbody.innerHTML = filtered.map((deploy, index) => `
+            <tr>
+                <td><strong>${deploy.app}</strong></td>
+                <td><span class="badge badge-info">${envLabels[deploy.env]}</span></td>
+                <td><code style="color: #38bdf8;">${deploy.version}</code></td>
+                <td>${statusBadges[deploy.status]}</td>
+                <td>${deploy.startTime.toLocaleString('ko-KR')}</td>
+                <td>${deploy.duration}</td>
+                <td>${deploy.deployer}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-light me-1" onclick="viewDeploymentDetail(${index})">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                    ${deploy.status === 'failed' ? `
+                    <button class="btn btn-sm btn-warning" onclick="retryDeployment(${index})">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </button>
+                    ` : ''}
+                    ${deploy.status === 'in_progress' ? `
+                    <button class="btn btn-sm btn-danger" onclick="cancelDeployment(${index})">
+                        <i class="bi bi-x-circle"></i>
+                    </button>
+                    ` : ''}
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    // 배포 차트 렌더링
+    function renderDeploymentChart() {
+        const ctx = document.getElementById('deploymentChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['1주', '2주', '3주', '4주'],
+                datasets: [{
+                    label: '성공',
+                    data: [12, 15, 18, 14],
+                    backgroundColor: 'rgba(34, 197, 94, 0.5)',
+                    borderColor: '#22c55e',
+                    borderWidth: 2
+                }, {
+                    label: '실패',
+                    data: [2, 1, 3, 2],
+                    backgroundColor: 'rgba(239, 68, 68, 0.5)',
+                    borderColor: '#ef4444',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        labels: { color: '#cbd5e1' }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { color: '#cbd5e1' },
+                        grid: { color: '#334155' }
+                    },
+                    x: {
+                        ticks: { color: '#cbd5e1' },
+                        grid: { color: '#334155' }
+                    }
+                }
+            }
+        });
+    }
+
+    // 환경 필터링
+    function filterEnv(env) {
+        currentEnvFilter = env;
+        renderDeploymentTable();
+    }
+
+    // 배포 시작
+    document.getElementById('deployForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const app = document.getElementById('appSelect').value;
+        const env = document.getElementById('envSelect').value;
+        const version = document.getElementById('versionInput').value;
+
+        if (confirm(`${app} (${version})을 ${env} 환경에 배포하시겠습니까?`)) {
+            alert('배포가 시작되었습니다.');
+            // API 호출 구현
+            loadDeploymentData();
+        }
+    });
+
+    // 배포 상세 보기
+    function viewDeploymentDetail(index) {
+        const deploy = deploymentData[index];
+        const content = document.getElementById('deploymentDetailContent');
+        content.innerHTML = `
+            <div class="mb-3">
+                <h6 style="color: #38bdf8;">기본 정보</h6>
+                <table class="table table-sm">
+                    <tr><td>애플리케이션:</td><td><strong>${deploy.app}</strong></td></tr>
+                    <tr><td>환경:</td><td><strong>${deploy.env}</strong></td></tr>
+                    <tr><td>버전:</td><td><code>${deploy.version}</code></td></tr>
+                    <tr><td>배포자:</td><td>${deploy.deployer}</td></tr>
+                    <tr><td>시작 시간:</td><td>${deploy.startTime.toLocaleString('ko-KR')}</td></tr>
+                    <tr><td>소요 시간:</td><td>${deploy.duration}</td></tr>
+                </table>
+            </div>
+            <div>
+                <h6 style="color: #38bdf8;">배포 로그</h6>
+                <pre style="background: #0f172a; padding: 1rem; border-radius: 8px; color: #cbd5e1; max-height: 300px; overflow-y: auto;">${deploy.logs}</pre>
+            </div>
+        `;
+        new bootstrap.Modal(document.getElementById('deploymentDetailModal')).show();
+    }
+
+    // 재배포
+    function retryDeployment(index) {
+        const deploy = deploymentData[index];
+        if (confirm(`${deploy.app} (${deploy.version})을 재배포하시겠습니까?`)) {
+            alert('재배포가 시작되었습니다.');
+        }
+    }
+
+    // 배포 취소
+    function cancelDeployment(index) {
+        const deploy = deploymentData[index];
+        if (confirm(`${deploy.app} 배포를 취소하시겠습니까?`)) {
+            alert('배포가 취소되었습니다.');
+            loadDeploymentData();
+        }
+    }
+
+    // 페이지 로드 시 데이터 로드
+    loadDeploymentData();
+
+    // 30초마다 자동 새로고침
+    setInterval(loadDeploymentData, 30000);
+</script>
+</body>
+</html>

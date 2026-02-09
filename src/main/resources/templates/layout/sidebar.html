@@ -1,0 +1,29 @@
+<th:block th:fragment="sidebar" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+    <div class="sidebar">
+        <a th:href="@{/admin/dashboard}"><h2><i class="bi bi-speedometer2"></i> Monitoring</h2></a>
+        <ul>
+            <li><a th:href="@{/admin/dashboard}"><i class="bi bi-bar-chart-fill"></i> 대시보드</a></li>
+            <li><a th:href="@{/admin/health}"><i class="bi bi-heart-pulse-fill"></i> 헬스체크</a></li>
+            <li><a th:href="@{/admin/batch}"><i class="bi bi-clock-history"></i> 배치관리</a></li>
+            <li><a th:href="@{/admin/deploy}"><i class="bi bi-rocket-takeoff-fill"></i> 배포관리</a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <!-- 디버깅: 현재 인증 상태 확인 -->
+<!--            <div style="color: #64748b; font-size: 0.8rem; margin-bottom: 0.5rem; text-align: center;">-->
+<!--                <span sec:authorize="isAuthenticated()">✅ 인증됨: <span sec:authentication="name"></span></span>-->
+<!--                <span sec:authorize="!isAuthenticated()">❌ 비인증</span>-->
+<!--            </div>-->
+
+            <!-- 로그인 상태일 때 로그아웃 버튼 표시 -->
+            <form sec:authorize="isAuthenticated()" th:action="@{/admin/logout}" method="post" style="margin: 0;">
+                <button type="submit" class="logout-btn" style="width: 100%; background: none; border: none; cursor: pointer;">
+                    <i class="bi bi-box-arrow-right"></i> 로그아웃
+                </button>
+            </form>
+            <!-- 비로그인 상태일 때 로그인 버튼 표시 -->
+            <a sec:authorize="!isAuthenticated()" th:href="@{/admin/login}" class="login-btn">
+                <i class="bi bi-box-arrow-in-right"></i> 로그인
+            </a>
+        </div>
+    </div>
+</th:block>
